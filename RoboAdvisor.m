@@ -62,6 +62,35 @@ function RoboAdvisor
     factorRet3.Date = [];
     factorRet_S3 = table2array(factorRet3(:,1:7));
     
+    % plot heatmap 
+    corr1 = corr(table2array(factorRet));
+    figure();
+    heatmap(factorRet1.Properties.VariableNames, ...
+        factorRet1.Properties.VariableNames, corr1, 'ColorLimits',[-1 1], ...
+        'Colormap', cool);
+    title('Correlation Heatmap (Normal)')
+    
+    corr2 = corr(table2array(factorRet1));
+    figure();
+    heatmap(factorRet1.Properties.VariableNames, ...
+        factorRet1.Properties.VariableNames, corr2, 'ColorLimits',[-1 1], ...
+        'Colormap', cool);
+    title('Correlation Heatmap (Extreme)')
+    
+    corr3 = corr(table2array(factorRet2));
+    figure();
+    heatmap(factorRet1.Properties.VariableNames, ...
+        factorRet1.Properties.VariableNames, corr3, 'ColorLimits',[-1 1], ...
+        'Colormap', cool);
+    title('Correlation Heatmap (Up)')
+    
+    corr4 = corr(table2array(factorRet3));
+    figure();
+    heatmap(factorRet1.Properties.VariableNames, ...
+        factorRet1.Properties.VariableNames, corr4, 'ColorLimits',[-1 1], ...
+        'Colormap', cool);
+    title('Correlation Heatmap (Down)')
+    
     riskFree = factorRet(:,8); 
     factorRet = factorRet(:,1:7);
     
@@ -102,7 +131,11 @@ function RoboAdvisor
     countDay = 1;
     
     % preallocate space for the portfolio per period value (in CAD)
-    currentVal = zeros(investDays, 1);
+    currentVal = nan(investDays, 1);
+    
+    % preallocate space for the portfolio drawdown 
+    drawdown = zeros(investDays,1);
+    previouspeak = 0;
     
     % preallocate space for the portfolio asset weight
     x = zeros(n, investDays);
@@ -114,7 +147,7 @@ function RoboAdvisor
     SVaR2 = zeros(1, investDays);
     SVaR3 = zeros(1, investDays);
     
-    % record the rebalance date position 
+    % record the rebalance date
     rb_date = zeros(1, investDays);
     
     % rebalancing process
@@ -166,6 +199,7 @@ function RoboAdvisor
             sqrt(x(:,countDay)'*SQ2*x(:,countDay))*norminv(alpha));
         SVaR3(countDay) = currentVal(countDay) * (Smu3'*x(:,countDay) +...
             sqrt(x(:,countDay)'*SQ3*x(:,countDay))*norminv(alpha));
+        
 
         for i = 2:NoDays
             countDay = countDay + 1;
@@ -230,6 +264,7 @@ function RoboAdvisor
             
         end
         
+        
         % Plot semi-annully value graph
         plotDates = dates(testStart <= dates & dates <= testEnd);
         figure();
@@ -247,10 +282,10 @@ function RoboAdvisor
         disp(['Sharpe ratio (', num2str(t), ') :', num2str(SR)]);
         
         % calculate annulized return
-        AR = (periodVal(end)/periodVal(1))^2-1;
-        disp(['Annulized return (', num2str(t), ') :', num2str(AR)]);
+        SAR = (periodVal(end)/periodVal(1))-1;
+        disp(['Semi-Annully return (', num2str(t), ') :', num2str(SAR)]);
         
-        % plot the asset class and geographic allcation before each injection 
+        % plot the asset class and geographic allcation after each injection 
         figure();
         pie([Equity; Bond; Cash; Commodity] * x(:,countDay-(NoDays-1)), ...
             {'Equity', 'Bond', 'Cash', 'Commodity'})
@@ -263,6 +298,11 @@ function RoboAdvisor
         calStart = calEnd - calyears(5);
         
         countDay = countDay + 1;
+        
+        % plot weight
+        % figure();
+        % pie(x(:,countDay-1));
+        % legend(tickers)
         
     end
     
@@ -277,6 +317,14 @@ function RoboAdvisor
     set(gca,'XTickLabelRotation',30);
     legend('USD Weight', 'CAD Weight');
     title('Currencies Allcation');
+    
+    % plot the portfolio value 
+    figure();
+    plot(plotDates, currentVal);
+    datetick('x','dd-mmm-yyyy','keepticks','keeplimits');
+    set(gca,'XTickLabelRotation',30);
+    title('Portfolio Value (CAD)');
+    
     
     % plot the portfolio value over the entire period 
     figure();
@@ -333,7 +381,6 @@ function RoboAdvisor
     title('VaR under Different Scenarios');
     
 end
-
 
 
 % The function FactorModel is used to determine the inputs of the
@@ -459,6 +506,7 @@ function [c, ceq] = nonlcon(x)
     c = [];
     ceq = [];
 end
+
 
 % The function ScenarioAnalysis is used to estimate the return and 
 % covariance matrix under different scenarios
